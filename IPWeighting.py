@@ -1,15 +1,17 @@
 from Importer import Importer
-from sklearn import linear_model
+from sklearn import linear_model, svm
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 def main():
     im = Importer()
     train = im.get_training_set()
     test = im.get_test_set()
     logis = linear_model.LogisticRegression()
+    statevectormachine = svm.SVC(probability=True)
 
-    for i in range(100):
+    for i in range(1):
         mu1 = train['mu1'][:, i]
         mu0 = train['mu0'][:, i]
         yf = train['yf'][:, i]
@@ -17,8 +19,8 @@ def main():
         t = train['t'][:, i]
         x = train['x'][:, :, i]
 
-        #x = x[:, 0][:, np.newaxis]
         logis.fit(x, t)
+        statevectormachine.fit(x, t)
 
         mu1_test = test['mu1'][:, i]
         mu0_test = test['mu0'][:, i]
@@ -27,42 +29,21 @@ def main():
         t_test = test['t'][:, i]
         x_test = test['x'][:, :, i]
 
-        mask = []
-        for num in t_test:
-            if num == 0:
-                mask.append(False)
-            else:
-                mask.append(True)
+        propensity_scores = logis.predict_proba(x_test)[:, 1]
+        #propensity_scores = statevectormachine.predict_proba(x_test)[:, 1]
 
-        #x_test = x_test[:, 0][:, np.newaxis]
-
-        ptx = logis.predict_proba(x_test)
-
-        pt1 = np.sum(t_test)/len(t_test)
-        pt0 = 1 - pt1
-        ptx1 = ptx[mask]
-        ptx0 = ptx[np.invert(mask)]
-
-        #print('pt', pt1, pt0)
-
-        #print('ptx', ptx1, ptx0)
-
-        w1 = pt1/ptx1[:, 1]
-        w0 = pt0/ptx0[:, 0]
-
-        #print('w', w1, w0)
-
-        yw1 = yf_test[mask]*w1
-        yw0 = yf_test[np.invert(mask)]*w0
-        #print('yf', yf_test)
-
-        #print('yw', yw1, yw0)
-
-        avg_yw1 = np.sum(yw1)/len(yw1)
-        avg_yw0 = np.sum(yw0)/len(yw0)
-
+        n = len(t_test)
+        weights = (1/n) * (t_test/propensity_scores + (1-t_test)/(1 - propensity_scores))
+        yw = yf_test*weights
+        #print(yw*t_test, yw*(1 - t_test))
+        avg_yw1 = np.sum(yw*t_test)
+        avg_yw0 = np.sum(yw*(1 - t_test))
+        #print(weights)
         #print(avg_yw1, avg_yw0)
-        print(avg_yw1 - avg_yw0)
+        print('Estimated ATE', avg_yw1 - avg_yw0)
+        smu0 = sum(test['mu0'][:, i]) / len(test['mu0'][:, i])
+        smu1 = sum(test['mu1'][:, i]) / len(test['mu1'][:, i])
+        print("Real ATE: {}".format(str(smu1 - smu0)))
 
 
 main()
