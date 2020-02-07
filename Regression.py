@@ -6,7 +6,7 @@ im = Importer()
 train = im.get_training_set()
 test = im.get_test_set()
 
-for i in range(100):
+for i in range(1):
     mu1 = train['mu1'][:, i]
     mu0 = train['mu0'][:, i]
     yf = train['yf'][:, i]
